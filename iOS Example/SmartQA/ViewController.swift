@@ -25,7 +25,9 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         
         var cpt = 0
         
-        let config = FSConfigBuilder().withOnVisitorExposed { visitorExposed, fromFlag in
+        let config = FSConfigBuilder()
+            .withLogLevel(.INFO)
+            .withOnVisitorExposed { visitorExposed, fromFlag in
             
             print(visitorExposed.id)
             print(fromFlag.key)
@@ -35,7 +37,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             print(" the cpt represent the callback number \(cpt)")
         }.build()
  
-        Flagship.sharedInstance.start(envId: "bkk9glocmjcg0vtmdlng", apiKey: "DxAcxlnRB9yFBZYtLDue1q01dcXZCw6aM49CQB23", config: config)
+        Flagship.sharedInstance.start(envId: "d5j4929gqnhg00c3hr2g", apiKey: "SLVyaIuzkwtPWKfFTGSrJJpZnBnebGzeCniLjBrt", config: config)
  
         let v1 = Flagship.sharedInstance.newVisitor(visitorId: "user2705", hasConsented: true).withContext(context: ["isQA": true]).withFetchFlagsStatus { newStatus, reason in
             if reason == .FETCHED_FROM_CACHE {}
@@ -44,7 +46,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         }.build()
         
         v1.fetchFlags {
-            let flag = v1.getFlag(key: "btnColor")
+            let flag = v1.getFlag(key: "price")
             let r: String? = flag.value(defaultValue: "ezez", visitorExposed: false)
         }
     }

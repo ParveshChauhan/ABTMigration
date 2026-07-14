@@ -45,7 +45,9 @@ public typealias OnVisitorExposed = ((_ visitorExposed: FSVisitorExposed, _ from
          pollingTime: TimeInterval = FSPollingTime,
          cacheManager: FSCacheManager,
          _ onStatusChanged: ((_ newStatus: FSSdkStatus)->Void)? = nil,
-         _ trackingConfig: FSTrackingManagerConfig, _ onVisitorExposed: OnVisitorExposed = nil, _ disableDeveloperUsageTracking: Bool = true)
+         _ trackingConfig: FSTrackingManagerConfig,
+         _ onVisitorExposed: OnVisitorExposed = nil,
+         _ disableDeveloperUsageTracking: Bool = true)
     {
         self.mode = mode
         self.timeout = timeOut
@@ -158,6 +160,16 @@ public typealias OnVisitorExposed = ((_ visitorExposed: FSVisitorExposed, _ from
     }
     
     @objc public func build()->FlagshipConfig {
-        return FlagshipConfig(_mode, _timeOut, _logLevel, pollingTime: _pollingTime, cacheManager: _cacheManager, _onSdkStatusChanged, _trackingConfig, _onVisitorExposure, _disableDeveloperUsageTracking)
+        return FlagshipConfig(
+            _mode,
+            _timeOut,
+            _logLevel,
+            pollingTime: _pollingTime,
+            cacheManager: _cacheManager,
+            _onSdkStatusChanged,
+            _trackingConfig,
+            _onVisitorExposure,
+            _disableDeveloperUsageTracking
+        )
     }
 }

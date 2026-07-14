@@ -96,4 +96,43 @@ public class FSModification {
         // Set value
         value = valueForFlag
     }
+
+    /// Creates a modification from a Wingify feature evaluation result.
+    internal init(
+        fromWingify featureKey: String,
+        valueForFlag: Any,
+        campaignId: String,
+        variationId: String,
+        campaignName: String,
+        campaignType: String
+    ) {
+        self.campaignId = campaignId
+        self.variationGroupId = campaignId
+        self.variationId = variationId
+        self.isReference = false
+        self.type = campaignType
+        self.slug = featureKey
+        self.value = valueForFlag
+        self.campaignName = campaignName
+        self.variationGroupName = campaignName
+        self.variationName = variationId
+    }
+
+    static func fromWingify(
+        featureKey: String,
+        value: Any,
+        campaignId: String,
+        variationId: String,
+        campaignName: String,
+        campaignType: String
+    ) -> FSModification {
+        FSModification(
+            fromWingify: featureKey,
+            valueForFlag: value,
+            campaignId: campaignId,
+            variationId: variationId,
+            campaignName: campaignName,
+            campaignType: campaignType
+        )
+    }
 }

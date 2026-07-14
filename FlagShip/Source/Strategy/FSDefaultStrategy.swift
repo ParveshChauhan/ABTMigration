@@ -29,6 +29,7 @@ class FSStrategy {
 //        }
 //    }
     
+    /// Returns the active strategy based on SDK status and visitor consent.
     func getStrategy() -> FSDelegateStrategy {
         switch Flagship.sharedInstance.currentStatus {
         case .SDK_INITIALIZED:
@@ -61,6 +62,16 @@ class FSDefaultStrategy: FSDelegateStrategy {
     
     /// Activate Flag
     func activateFlag(_ flag: FSFlag) {
+        // Wingify impressions are already sent during getFlag evaluation in fetchFlags.
+        if visitor.wingifyFeatureKeys.contains(flag.key) {
+            FlagshipLogManager.Log(
+                level: .INFO,
+                tag: .ACTIVATE,
+                messageToDisplay: FSLogMessage.MESSAGE("Wingify engine handles exposure for flag `\(flag.key)`. ABTasty activate skipped.")
+            )
+            return
+        }
+
         if let aModification = visitor.currentFlags[flag.key] {
             // Define Exposed flag and exposed visitor
             var exposedFlag, exposedVisitor: String?
@@ -138,7 +149,7 @@ class FSDefaultStrategy: FSDelegateStrategy {
     }
     
     func getModification<T>(_ key: String, defaultValue: T) -> T {
-        if let flagObject = visitor.currentFlags[key] {
+        if let flagObject = resolveModification(key) {
             if flagObject.value is T {
                 return flagObject.value as? T ?? defaultValue
             }
@@ -146,13 +157,13 @@ class FSDefaultStrategy: FSDelegateStrategy {
         return defaultValue
     }
     
-    /// Get Flag Modification value
+    /// Get Flag Modification value — Wingify first, then ABTasty.
     func getFlagModification(_ key: String) -> FSModification? {
-        return visitor.currentFlags[key]
+        return resolveModification(key)
     }
         
     func getModificationInfo(_ key: String) -> [String: Any]? {
-        if let flagObject = visitor.currentFlags[key] {
+        if let flagObject = resolveModification(key) {
             return ["campaignId": flagObject.campaignId,
                     "variationGroupId": flagObject.variationGroupId,
                     "variationId": flagObject.variationId,
@@ -163,6 +174,14 @@ class FSDefaultStrategy: FSDelegateStrategy {
     }
     
     func getFlagStatus(_ key: String) -> FSFlagStatus {
+        // Wingify-known keys take priority; disabled Wingify keys are NOT_FOUND (no ABTasty fallback).
+        if visitor.wingifyFeatureKeys.contains(key) {
+            if visitor.wingifyFlags.keys.contains(key) {
+                return visitor.fetchStatus == .FETCHED ? .FETCHED : .FETCH_REQUIRED
+            }
+            return .NOT_FOUND
+        }
+
         switch visitor.fetchStatus {
         case .FETCHED:
             if visitor.currentFlags.keys.contains(key) {
@@ -177,6 +196,14 @@ class FSDefaultStrategy: FSDelegateStrategy {
             return .PANIC
         }
         return .NOT_FOUND
+    }
+
+    /// Resolves a flag: check Wingify first (if key was in Wingify settings), otherwise ABTasty `currentFlags`.
+    private func resolveModification(_ key: String) -> FSModification? {
+        if visitor.wingifyFeatureKeys.contains(key) {
+            return visitor.wingifyFlags[key]
+        }
+        return visitor.currentFlags[key]
     }
     
     func sendHit(_ hit: FSTrackingProtocol) {
