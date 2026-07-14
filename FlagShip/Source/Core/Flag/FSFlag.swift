@@ -35,23 +35,37 @@ public class FSFlag: NSObject {
     
     /// Getting value for flag
     /// - Parameters:
+    ///   - Value: Optional Wingify variable key. When set for a Wingify-backed flag, returns that variable's value; if missing or type-mismatched, returns `defaultValue`. Ignored for ABTasty flags.
     ///   - defaultValue: input given by the developer
     ///   - visitorExposed: optional input to expose flag
     /// - Returns: Return a flag value. See the documentation for more details
-    public func value<T>(defaultValue: T?, visitorExposed: Bool = true)->T? {
+    ///
+    /// Examples:
+    /// ```
+    /// flag.value(defaultValue: "default")
+    /// flag.value(Value: "cta", defaultValue: "default-cta")
+    /// flag.value(Value: "discount", defaultValue: 0)
+    /// ```
+    public func value<T>(Value valueKey: String? = nil, defaultValue: T?, visitorExposed: Bool = true) -> T? {
         var result: T?
         // Update the default value
         self.defaultValue = defaultValue
         if let flagModification = strategy?.getStrategy().getFlagModification(key) {
-            if isSameType_or_DefaultValue_Nil(defaultValue, flagModification.value) { /// _ have same type with default value OR the default value is nil
-                ///
-                FlagshipLogManager.Log(level: .ALL, tag: .GET_MODIFICATION, messageToDisplay: .MESSAGE("The value of the flag `\(key)` is `\(flagModification.value)"))
-                
-                result = flagModification.value as? T
+            let resolvedValue = resolveFlagValue(from: flagModification, Value: valueKey, defaultValue: defaultValue)
+
+            if let resolvedValue = resolvedValue {
+                if isSameType_or_DefaultValue_Nil(defaultValue, resolvedValue) {
+                    FlagshipLogManager.Log(level: .ALL, tag: .GET_MODIFICATION, messageToDisplay: .MESSAGE("The value of the flag `\(key)` is `\(resolvedValue)`"))
+                    result = resolvedValue as? T
+                } else {
+                    result = defaultValue
+                    let msg = "For the visitor \(strategy?.visitor.visitorId ?? ""), the flag `\(key)` value type does not match. Therefore, the default value \(String(describing: defaultValue)) has been returned"
+                    FlagshipLogManager.Log(level: .ALL, tag: .ACTIVATE, messageToDisplay: FSLogMessage.MESSAGE(msg))
+                }
             } else {
                 result = defaultValue
-                let msg = "For the visitor \(strategy?.visitor.visitorId ?? ""), no flags were found with the key \(key). Therefore, the default value \(String(describing: defaultValue)) has been returned"
-                FlagshipLogManager.Log(level: .ALL, tag: .ACTIVATE, messageToDisplay: FSLogMessage.MESSAGE(msg))
+                let msg = "For the visitor \(strategy?.visitor.visitorId ?? ""), no value was found for flag `\(key)`\(valueKey.map { " variable `\($0)`" } ?? ""). Therefore, the default value \(String(describing: defaultValue)) has been returned"
+                FlagshipLogManager.Log(level: .ALL, tag: .GET_MODIFICATION, messageToDisplay: FSLogMessage.MESSAGE(msg))
             }
             
             /// Activate
@@ -63,6 +77,16 @@ public class FSFlag: NSObject {
         FlagshipLogManager.Log(level: .ALL, tag: .GET_MODIFICATION, messageToDisplay: .MESSAGE("The key doon't exist ===> return the defaultValue"))
         
         return defaultValue
+    }
+
+    /// Resolves the raw value for ABTasty or Wingify (optionally by variable key).
+    private func resolveFlagValue<T>(from modification: FSModification, Value valueKey: String?, defaultValue: T?) -> Any? {
+        // Wingify: optional variable key lookup
+        if modification.type == "wingify", let valueKey = valueKey, !valueKey.isEmpty {
+            return modification.wingifyVariableValue(for: valueKey)
+        }
+        // ABTasty (or Wingify without Value): use the primary modification value
+        return modification.value
     }
     
     @objc public func visitorExposed() {

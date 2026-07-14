@@ -8,21 +8,28 @@ import Wingify_FME
 
 enum WingifyFlagAdapter {
     /// Maps a Wingify `GetFlag` result into an ABTasty `FSModification`.
-    /// Uses the feature key as the primary variable key when resolving the flag value.
+    /// Stores all variables so `FSFlag.value(Value:defaultValue:)` can look them up by key.
     static func map(featureKey: String, getFlag: GetFlag) -> FSModification? {
         guard getFlag.isEnabled() else { return nil }
 
         let variables = getFlag.getVariables()
-        let value: Any
+        var variablesMap: [String: Any] = [:]
+        for variable in variables {
+            guard let variableKey = variable["key"] as? String, !variableKey.isEmpty,
+                  let variableValue = variable["value"] else { continue }
+            variablesMap[variableKey] = variableValue
+        }
 
-        if let primary = variables.first(where: { ($0["key"] as? String) == featureKey }),
-           let primaryValue = primary["value"] {
+        let value: Any
+        if let primaryValue = variablesMap[featureKey] {
             value = primaryValue
         } else if let first = variables.first, let firstValue = first["value"] {
             value = firstValue
         } else {
-            value = getFlag.getVariable(key: featureKey, defaultValue: NSNull())
-            if value is NSNull { return nil }
+            let fallback = getFlag.getVariable(key: featureKey, defaultValue: NSNull())
+            if fallback is NSNull { return nil }
+            value = fallback
+            variablesMap[featureKey] = fallback
         }
 
         return FSModification.fromWingify(
@@ -31,7 +38,8 @@ enum WingifyFlagAdapter {
             campaignId: featureKey,
             variationId: "0",
             campaignName: featureKey,
-            campaignType: "wingify"
+            campaignType: "wingify",
+            wingifyVariables: variablesMap
         )
     }
 }

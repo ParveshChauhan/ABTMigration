@@ -28,6 +28,8 @@ public class FSModification {
     let variationGroupName:String
     // VariationName
     let variationName:String
+    /// Wingify variables keyed by variable name (nil/empty for ABTasty flags).
+    var wingifyVariables: [String: Any] = [:]
     
     // init from campaign and variation
     internal init(aCampaign:FSCampaign,aVariation:FSVariation, valueForFlag:Any){
@@ -104,7 +106,8 @@ public class FSModification {
         campaignId: String,
         variationId: String,
         campaignName: String,
-        campaignType: String
+        campaignType: String,
+        wingifyVariables: [String: Any] = [:]
     ) {
         self.campaignId = campaignId
         self.variationGroupId = campaignId
@@ -116,6 +119,7 @@ public class FSModification {
         self.campaignName = campaignName
         self.variationGroupName = campaignName
         self.variationName = variationId
+        self.wingifyVariables = wingifyVariables
     }
 
     static func fromWingify(
@@ -124,7 +128,8 @@ public class FSModification {
         campaignId: String,
         variationId: String,
         campaignName: String,
-        campaignType: String
+        campaignType: String,
+        wingifyVariables: [String: Any] = [:]
     ) -> FSModification {
         FSModification(
             fromWingify: featureKey,
@@ -132,7 +137,13 @@ public class FSModification {
             campaignId: campaignId,
             variationId: variationId,
             campaignName: campaignName,
-            campaignType: campaignType
+            campaignType: campaignType,
+            wingifyVariables: wingifyVariables
         )
+    }
+
+    /// Resolves a Wingify variable by key. Returns nil if the variable key is missing.
+    func wingifyVariableValue(for valueKey: String) -> Any? {
+        wingifyVariables[valueKey]
     }
 }
