@@ -21,6 +21,8 @@ public typealias OnFetchFlagsStatusChanged = ((_ newStatus: FSFetchStatus, _ rea
     public private(set) var _isAuthenticated: Bool = false
     /// instance
     private var _instanceType: Instance = .SHARED_INSTANCE
+    /// Optional Wingify user-context options
+    private var _wingifyUserContext: FSWingifyVisitorOptions?
     
     // Callbak for status
     private var _onFetchFlagsStatusChanged: OnFetchFlagsStatusChanged = nil
@@ -42,6 +44,25 @@ public typealias OnFetchFlagsStatusChanged = ((_ newStatus: FSFetchStatus, _ rea
         _context = context
         return self
     }
+
+    /// Sets Wingify user-context options used when mapping this visitor to `WingifyUserContext`.
+    /// - Parameters:
+    ///   - shouldUseDeviceIdAsUserId: When true, Wingify may fall back to the device ID if needed.
+    ///   - bucketingSeed: Optional seed for consistent Wingify bucketing.
+    ///   - postSegmentationVariables: Custom-variable keys used for Wingify post-segmentation.
+    @discardableResult
+    @objc public func withWingifyUserContext(
+        shouldUseDeviceIdAsUserId: Bool = false,
+        bucketingSeed: String? = nil,
+        postSegmentationVariables: [String]? = nil
+    ) -> FSVisitorBuilder {
+        _wingifyUserContext = FSWingifyVisitorOptions(
+            shouldUseDeviceIdAsUserId: shouldUseDeviceIdAsUserId,
+            bucketingSeed: bucketingSeed,
+            postSegmentationVariables: postSegmentationVariables
+        )
+        return self
+    }
     
     @objc public func isAuthenticated(_ autenticated: Bool)->FSVisitorBuilder {
         _isAuthenticated = autenticated
@@ -55,6 +76,7 @@ public typealias OnFetchFlagsStatusChanged = ((_ newStatus: FSFetchStatus, _ rea
     
     @objc public func build()->FSVisitor {
         let newVisitor = Flagship.sharedInstance.newVisitor(_visitorId, context: _context, hasConsented: _hasConsented, isAuthenticated: _isAuthenticated, pOnFetchFlagStatusChanged: _onFetchFlagsStatusChanged)
+        newVisitor.wingifyUserContext = _wingifyUserContext
         
         if _instanceType == .SHARED_INSTANCE {
             /// Set this visitor as shared instance

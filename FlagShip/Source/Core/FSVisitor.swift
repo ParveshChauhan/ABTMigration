@@ -46,6 +46,8 @@ import Foundation
     public internal(set) var wingifyFlags: [String: FSModification] = [:]
     /// All Wingify feature keys from settings (including disabled). Used so getFlag prefers Wingify over ABTasty for these keys.
     var wingifyFeatureKeys: Set<String> = []
+    /// Optional Wingify options used when mapping this visitor to `WingifyUserContext`.
+    public internal(set) var wingifyUserContext: FSWingifyVisitorOptions?
     /// Context
     var context: FSContext
     /// Strategy
