@@ -51,6 +51,14 @@ public class FSFlag: NSObject {
         // Update the default value
         self.defaultValue = defaultValue
         if let flagModification = strategy?.getStrategy().getFlagModification(key) {
+            // Wingify: non-overloaded API with multiple variables → return defaultValue + warning
+            if shouldBlockNonOverloadedWingifyValue(flagModification, valueKey: valueKey) {
+                if visitorExposed {
+                    self.visitorExposed()
+                }
+                return defaultValue
+            }
+
             let resolvedValue = resolveFlagValue(from: flagModification, Value: valueKey, defaultValue: defaultValue)
 
             if let resolvedValue = resolvedValue {
@@ -81,12 +89,27 @@ public class FSFlag: NSObject {
 
     /// Resolves the raw value for ABTasty or Wingify (optionally by variable key).
     private func resolveFlagValue<T>(from modification: FSModification, Value valueKey: String?, defaultValue: T?) -> Any? {
-        // Wingify: optional variable key lookup
         if modification.type == "wingify", let valueKey = valueKey, !valueKey.isEmpty {
             return modification.wingifyVariableValue(for: valueKey)
         }
-        // ABTasty (or Wingify without Value): use the primary modification value
+        // Single Wingify variable (or ABTasty): use the primary modification value
         return modification.value
+    }
+
+    /// Wingify non-overloaded `value(defaultValue:)` with multiple variables:
+    /// log a warning and signal the caller to return `defaultValue`.
+    private func shouldBlockNonOverloadedWingifyValue(_ modification: FSModification, valueKey: String?) -> Bool {
+        guard modification.type == "wingify" else { return false }
+
+        let hasValueKey = valueKey.map { !$0.isEmpty } ?? false
+        guard !hasValueKey else { return false }
+
+        let variableCount = max(modification.wingifyVariableCount, modification.wingifyVariables.count)
+        guard variableCount > 1 else { return false }
+
+        let msg = "Wingify feature '\(key)' contains multiple variables. Please specify a variable key using .value(Value: \"variableKey\", defaultValue:)."
+        FlagshipLogManager.Log(level: .WARNING, tag: .GET_MODIFICATION, messageToDisplay: .MESSAGE(msg))
+        return true
     }
     
     @objc public func visitorExposed() {

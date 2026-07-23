@@ -13,10 +13,11 @@ enum WingifyFlagAdapter {
         guard getFlag.isEnabled() else { return nil }
 
         let variables = getFlag.getVariables()
+        let variableCount = variables.count
         var variablesMap: [String: Any] = [:]
         for variable in variables {
-            guard let variableKey = variable["key"] as? String, !variableKey.isEmpty,
-                  let variableValue = variable["value"] else { continue }
+            let variableKey = (variable["key"] as? String) ?? ""
+            guard !variableKey.isEmpty, let variableValue = variable["value"] else { continue }
             variablesMap[variableKey] = variableValue
         }
 
@@ -39,7 +40,8 @@ enum WingifyFlagAdapter {
             variationId: "0",
             campaignName: featureKey,
             campaignType: "wingify",
-            wingifyVariables: variablesMap
+            wingifyVariables: variablesMap,
+            wingifyVariableCount: variableCount
         )
     }
 }

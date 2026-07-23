@@ -30,6 +30,8 @@ public class FSModification {
     let variationName:String
     /// Wingify variables keyed by variable name (nil/empty for ABTasty flags).
     var wingifyVariables: [String: Any] = [:]
+    /// Raw Wingify variable count from `getVariables()` (0 for ABTasty flags).
+    var wingifyVariableCount: Int = 0
     
     // init from campaign and variation
     internal init(aCampaign:FSCampaign,aVariation:FSVariation, valueForFlag:Any){
@@ -107,7 +109,8 @@ public class FSModification {
         variationId: String,
         campaignName: String,
         campaignType: String,
-        wingifyVariables: [String: Any] = [:]
+        wingifyVariables: [String: Any] = [:],
+        wingifyVariableCount: Int = 0
     ) {
         self.campaignId = campaignId
         self.variationGroupId = campaignId
@@ -120,6 +123,7 @@ public class FSModification {
         self.variationGroupName = campaignName
         self.variationName = variationId
         self.wingifyVariables = wingifyVariables
+        self.wingifyVariableCount = wingifyVariableCount > 0 ? wingifyVariableCount : wingifyVariables.count
     }
 
     static func fromWingify(
@@ -129,7 +133,8 @@ public class FSModification {
         variationId: String,
         campaignName: String,
         campaignType: String,
-        wingifyVariables: [String: Any] = [:]
+        wingifyVariables: [String: Any] = [:],
+        wingifyVariableCount: Int = 0
     ) -> FSModification {
         FSModification(
             fromWingify: featureKey,
@@ -138,7 +143,8 @@ public class FSModification {
             variationId: variationId,
             campaignName: campaignName,
             campaignType: campaignType,
-            wingifyVariables: wingifyVariables
+            wingifyVariables: wingifyVariables,
+            wingifyVariableCount: wingifyVariableCount
         )
     }
 
