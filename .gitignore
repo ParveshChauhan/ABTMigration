@@ -3,9 +3,9 @@
 .DS_Store
 .build/
 .swiftpm/
- Example/
- docs/
- .travis.yml
+Example/
+docs/
+.travis.yml
 
 # Xcode
 build/

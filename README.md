@@ -25,11 +25,6 @@
 - [Campaign integration](https://docs.developers.flagship.io/docs/ios-v30x#managing-visitor-campaigns-and-their-flags)
 - [Hit tracking](https://docs.developers.flagship.io/docs/ios-v30x#hit-tracking)
 - [Release Notes](https://docs.developers.flagship.io/docs/ios-sdk)
-- [Wingify flag values](./docs/Wingify-Flag-Values.md)
-- [Wingify sendHit → trackEvent](./docs/Wingify-SendHit-TrackEvent.md)
-- [Optional Wingify SDK](./docs/Optional-Wingify-SDK.md)
-- [Optional Wingify dependency (full spec)](./docs/Optional-Wingify-Dependency-Spec.md)
-- [API parity: Flagship vs Wingify](./docs/API-Parity-Flagship-vs-Wingify.md)
 
 
 ## Contributors
