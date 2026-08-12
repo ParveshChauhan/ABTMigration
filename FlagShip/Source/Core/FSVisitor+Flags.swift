@@ -21,12 +21,21 @@ public extension FSVisitor {
     }
 
     /// Getting FSFlagCollection
-    /// - Returns: an instance of FSFlagCollection with flags
+    /// - Returns: an instance of FSFlagCollection with flags (Wingify keys preferred over ABTasty on collision)
     func getFlags() -> FSFlagCollection {
         var ret: [String: FSFlag] = [:]
+        // ABTasty first, then Wingify overwrites overlapping keys in the collection view
         self.currentFlags.forEach { (key: String, _: FSModification) in
-
             ret.updateValue(FSFlag(key, self.strategy), forKey: key)
+        }
+        self.wingifyFlags.forEach { (key: String, _: FSModification) in
+            ret.updateValue(FSFlag(key, self.strategy), forKey: key)
+        }
+        // Include Wingify-known keys that were disabled (so they appear as NOT_FOUND handles)
+        self.wingifyFeatureKeys.forEach { key in
+            if ret[key] == nil {
+                ret[key] = FSFlag(key, self.strategy)
+            }
         }
         return FSFlagCollection(flags: ret)
     }

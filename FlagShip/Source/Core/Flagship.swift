@@ -63,27 +63,30 @@ public class Flagship: NSObject {
     override private init() {
         lastInitializationTimestamp = FSTools.getUtcTimestamp()
      }
-    
+
+    /// Starts the Flagship SDK (ABTasty only).
+    /// For dual-engine (ABTasty + Wingify), import `FlagshipWingify` and use
+    /// `start(envId:apiKey:config:wingifyInitOptions:)`.
     @objc public func start(envId: String, apiKey: String, config: FlagshipConfig? = nil) {
         let resolvedConfig = config ?? FSConfigBuilder().build()
-        
+
         // Check the environmentId
         if FSTools.chekcXidEnvironment(envId) {
             Flagship.sharedInstance.envId = envId
-            
+
         } else {
             Flagship.sharedInstance.updateStatus(.SDK_NOT_INITIALIZED)
- 
+
             FlagshipLogManager.Log(level: .ALL, tag: .INITIALIZATION, messageToDisplay: FSLogMessage.ERROR_INIT_SDK)
             return
         }
-        
+
         // Set the apiKey
         self.apiKey = apiKey
-        
+
         // Set configuration
         Flagship.sharedInstance.setCurrentConfigSync(resolvedConfig)
-        
+
         switch resolvedConfig.mode { case .DECISION_API:
             Flagship.sharedInstance.updateStatus(.SDK_INITIALIZED)
         case .BUCKETING:
@@ -92,7 +95,7 @@ public class Flagship: NSObject {
             // Update status depend on the buckeitng file
             Flagship.sharedInstance.updateStatus(FSStorageManager.bucketingScriptAlreadyAvailable() ? .SDK_INITIALIZED : .SDK_INITIALIZING)
         }
-        
+
         FlagshipLogManager.Log(level: .ALL, tag: .INITIALIZATION, messageToDisplay: FSLogMessage.INIT_SDK(FlagShipVersion))
     }
     
@@ -130,6 +133,7 @@ public class Flagship: NSObject {
     // Reset the sdk
     func reset() {
         fsQueue.sync(flags: .barrier) {
+            FSWingifyRuntime.integration?.reset()
             self.sharedVisitor = nil
             self._currentStatus = .SDK_NOT_INITIALIZED
             self._currentConfig = FSConfigBuilder().build()

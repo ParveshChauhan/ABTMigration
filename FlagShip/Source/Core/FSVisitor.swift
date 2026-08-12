@@ -40,8 +40,16 @@ import Foundation
         }
     }
 
-    /// Modifications
+    /// Modifications from ABTasty Decision API / Bucketing
     public internal(set) var currentFlags: [String: FSModification] = [:] /// Empty
+    /// Modifications evaluated via Wingify during `fetchFlags` (enabled features only)
+    public internal(set) var wingifyFlags: [String: FSModification] = [:]
+    /// All Wingify feature keys from settings (including disabled). Used so getFlag prefers Wingify over ABTasty for these keys.
+    var wingifyFeatureKeys: Set<String> = []
+    /// All Wingify event identifiers from settings (feature + holdout metrics). Used so sendHit(FSEvent) prefers Wingify trackEvent.
+    var wingifyEventKeys: Set<String> = []
+    /// Optional Wingify options used when mapping this visitor to `WingifyUserContext`.
+    public internal(set) var wingifyUserContext: FSWingifyVisitorOptions?
     /// Context
     var context: FSContext
     /// Strategy
@@ -110,20 +118,50 @@ import Foundation
         // Go to ING state while the fetch is ongoing
         self.fetchStatus = .FETCHING
         self.strategy?.getStrategy().synchronize(onSyncCompleted: { state, reason in
- 
+
             // After the synchronize completion we cache the visitor
             self.strategy?.getStrategy().cacheVisitor()
-            
+
             // If bucketing mode and no consent and no panic mode
             if self.configManager.flagshipConfig.mode == .BUCKETING, Flagship.sharedInstance.currentStatus != .SDK_PANIC {
                 self.sendHit(FSSegment(self.getContext()))
             }
-            // Update the reason status
-            self.requiredFetchReason = reason
-            // Update the fetch status
-            self.fetchStatus = state
-            onFetchCompleted()
+
+            // When Wingify is configured, call Wingify `fetchFlags` and adapt into wingifyFlags.
+            self.prefetchWingifyFlagsIfNeeded {
+                self.requiredFetchReason = reason
+                self.fetchStatus = state
+                onFetchCompleted()
+            }
         })
+    }
+
+    private func prefetchWingifyFlagsIfNeeded(completion: @escaping () -> Void) {
+        guard let integration = FSWingifyRuntime.integration, integration.isConfigured, hasConsented else {
+            wingifyFlags.removeAll()
+            wingifyFeatureKeys.removeAll()
+            wingifyEventKeys.removeAll()
+            completion()
+            return
+        }
+
+        integration.prefetchFlags(for: self) { [weak self] featureKeys, eventKeys, modifications in
+            guard let self = self else {
+                completion()
+                return
+            }
+            self.wingifyFeatureKeys = featureKeys
+            self.wingifyEventKeys = eventKeys
+            self.wingifyFlags = modifications
+            FlagshipLogManager.Log(
+                level: .INFO,
+                tag: .FLAG,
+                messageToDisplay: FSLogMessage.MESSAGE(
+                    "Wingify fetchFlags: \(featureKeys.count) feature key(s), \(eventKeys.count) event key(s), \(modifications.count) enabled"
+                )
+            )
+            completion()
+        }
     }
     
     //////////////////////

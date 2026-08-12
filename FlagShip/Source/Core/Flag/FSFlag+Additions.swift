@@ -32,26 +32,47 @@ public extension FSFlag {
         switch defaultValue {
             case _ as String:
                 /// Compare with String
-                return self.value(defaultValue: defaultValue as? String, visitorExposed: visitorExposed) ?? defaultValue
+                return self.value(Value: nil, defaultValue: defaultValue as? String, visitorExposed: visitorExposed) ?? defaultValue
             case _ as Int:
                 /// Compare with Int
-                return self.value(defaultValue: defaultValue as? Int, visitorExposed: visitorExposed) ?? defaultValue
+                return self.value(Value: nil, defaultValue: defaultValue as? Int, visitorExposed: visitorExposed) ?? defaultValue
             case _ as Bool:
                 /// Compare with Boolean
-                return self.value(defaultValue: defaultValue as? Bool, visitorExposed: visitorExposed) ?? defaultValue
+                return self.value(Value: nil, defaultValue: defaultValue as? Bool, visitorExposed: visitorExposed) ?? defaultValue
 
             case _ as Double:
                 /// Compare with Double
-                return self.value(defaultValue: defaultValue as? Double, visitorExposed: visitorExposed) ?? defaultValue
+                return self.value(Value: nil, defaultValue: defaultValue as? Double, visitorExposed: visitorExposed) ?? defaultValue
 
             case _ as [Any]:
                 /// Compare with Array
-                return self.value(defaultValue: defaultValue as? [Any], visitorExposed: visitorExposed) ?? defaultValue
+                return self.value(Value: nil, defaultValue: defaultValue as? [Any], visitorExposed: visitorExposed) ?? defaultValue
 
             case _ as [String: Any]:
                 /// Compare with Dictionary
-                return self.value(defaultValue: defaultValue as? [String: Any], visitorExposed: visitorExposed) ?? defaultValue
+                return self.value(Value: nil, defaultValue: defaultValue as? [String: Any], visitorExposed: visitorExposed) ?? defaultValue
 
+            default:
+                return defaultValue
+        }
+    }
+
+    /// Objective-C: Wingify variable lookup by key.
+    @available(swift, obsoleted: 1.0, message: "For Objective_C use only")
+    @objc func value(Value valueKey: String, defaultValue: Any, visitorExposed: Bool = true) -> Any {
+        switch defaultValue {
+            case _ as String:
+                return self.value(Value: valueKey, defaultValue: defaultValue as? String, visitorExposed: visitorExposed) ?? defaultValue
+            case _ as Int:
+                return self.value(Value: valueKey, defaultValue: defaultValue as? Int, visitorExposed: visitorExposed) ?? defaultValue
+            case _ as Bool:
+                return self.value(Value: valueKey, defaultValue: defaultValue as? Bool, visitorExposed: visitorExposed) ?? defaultValue
+            case _ as Double:
+                return self.value(Value: valueKey, defaultValue: defaultValue as? Double, visitorExposed: visitorExposed) ?? defaultValue
+            case _ as [Any]:
+                return self.value(Value: valueKey, defaultValue: defaultValue as? [Any], visitorExposed: visitorExposed) ?? defaultValue
+            case _ as [String: Any]:
+                return self.value(Value: valueKey, defaultValue: defaultValue as? [String: Any], visitorExposed: visitorExposed) ?? defaultValue
             default:
                 return defaultValue
         }

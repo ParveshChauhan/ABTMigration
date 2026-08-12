@@ -33,12 +33,12 @@ public enum FSTag: String {
     case DATA_TR_USAGE
 }
 
-class FlagshipLogManager: FSLogManager {
+public class FlagshipLogManager: FSLogManager {
     override init() {
         super.init()
     }
 
-    static func Log(level: FSLevel, tag: FSTag, messageToDisplay: FSLogMessage) {
+    public static func Log(level: FSLevel, tag: FSTag, messageToDisplay: FSLogMessage) {
         if isAllowed(level) {
             print("Flagship - \(tag.rawValue) - \(messageToDisplay.description)") /// Do not delete this print
         }

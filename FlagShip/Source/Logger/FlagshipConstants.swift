@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum FSLogMessage: CustomStringConvertible {
+public enum FSLogMessage: CustomStringConvertible {
     /// INIT
     case INIT_SDK(_ key: String)
     case ERROR_INIT_SDK
@@ -83,7 +83,7 @@ enum FSLogMessage: CustomStringConvertible {
     /// Universal
     case MESSAGE(_ key: String?)
 
-    var description: String {
+    public var description: String {
         var ret: String
         
         switch self {

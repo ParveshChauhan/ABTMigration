@@ -29,6 +29,7 @@ class FSStrategy {
 //        }
 //    }
     
+    /// Returns the active strategy based on SDK status and visitor consent.
     func getStrategy() -> FSDelegateStrategy {
         switch Flagship.sharedInstance.currentStatus {
         case .SDK_INITIALIZED:
@@ -61,6 +62,18 @@ class FSDefaultStrategy: FSDelegateStrategy {
     
     /// Activate Flag
     func activateFlag(_ flag: FSFlag) {
+        // Prefetch uses Wingify `fetchFlags` (no impressions). Exposure via `exposeResult`
+        // when Flagship `value` / `visitorExposed` runs (visitorExposed defaults to true).
+        if visitor.wingifyFeatureKeys.contains(flag.key) {
+            FSWingifyRuntime.integration?.exposeFlag(for: visitor, featureKey: flag.key)
+            FlagshipLogManager.Log(
+                level: .INFO,
+                tag: .ACTIVATE,
+                messageToDisplay: FSLogMessage.MESSAGE("Wingify exposeResult for flag `\(flag.key)`. ABTasty activate skipped.")
+            )
+            return
+        }
+
         if let aModification = visitor.currentFlags[flag.key] {
             // Define Exposed flag and exposed visitor
             var exposedFlag, exposedVisitor: String?
@@ -138,7 +151,7 @@ class FSDefaultStrategy: FSDelegateStrategy {
     }
     
     func getModification<T>(_ key: String, defaultValue: T) -> T {
-        if let flagObject = visitor.currentFlags[key] {
+        if let flagObject = resolveModification(key) {
             if flagObject.value is T {
                 return flagObject.value as? T ?? defaultValue
             }
@@ -146,13 +159,13 @@ class FSDefaultStrategy: FSDelegateStrategy {
         return defaultValue
     }
     
-    /// Get Flag Modification value
+    /// Get Flag Modification value — Wingify first, then ABTasty.
     func getFlagModification(_ key: String) -> FSModification? {
-        return visitor.currentFlags[key]
+        return resolveModification(key)
     }
         
     func getModificationInfo(_ key: String) -> [String: Any]? {
-        if let flagObject = visitor.currentFlags[key] {
+        if let flagObject = resolveModification(key) {
             return ["campaignId": flagObject.campaignId,
                     "variationGroupId": flagObject.variationGroupId,
                     "variationId": flagObject.variationId,
@@ -163,6 +176,14 @@ class FSDefaultStrategy: FSDelegateStrategy {
     }
     
     func getFlagStatus(_ key: String) -> FSFlagStatus {
+        // Wingify-known keys take priority; disabled Wingify keys are NOT_FOUND (no ABTasty fallback).
+        if visitor.wingifyFeatureKeys.contains(key) {
+            if visitor.wingifyFlags.keys.contains(key) {
+                return visitor.fetchStatus == .FETCHED ? .FETCHED : .FETCH_REQUIRED
+            }
+            return .NOT_FOUND
+        }
+
         switch visitor.fetchStatus {
         case .FETCHED:
             if visitor.currentFlags.keys.contains(key) {
@@ -178,14 +199,60 @@ class FSDefaultStrategy: FSDelegateStrategy {
         }
         return .NOT_FOUND
     }
+
+    /// Resolves a flag: check Wingify first (if key was in Wingify settings), otherwise ABTasty `currentFlags`.
+    private func resolveModification(_ key: String) -> FSModification? {
+        if visitor.wingifyFeatureKeys.contains(key) {
+            return visitor.wingifyFlags[key]
+        }
+        return visitor.currentFlags[key]
+    }
     
     func sendHit(_ hit: FSTrackingProtocol) {
         // Set the visitor Id and anonymous id  (See later to better )
         hit.visitorId = visitor.visitorId
         hit.anonymousId = visitor.anonymousId
+
+        // Same strategy as getFlag: if event key is in Wingify settings → Wingify only; else ABTasty.
+        if routeEventToWingifyIfNeeded(hit) {
+            return
+        }
+
         visitor.configManager.trackingManager?.sendHit(hit)
         // Troubleshooting hits
         FSDataUsageTracking.sharedInstance.processTSHits(label: CriticalPoints.VISITOR_SEND_HIT.rawValue, visitor: visitor, hit: hit)
+    }
+
+    /// Routes `FSEvent` to Wingify `trackEvent` when the event action is in `wingifyEventKeys`.
+    /// Returns `true` when handled by Wingify (ABTasty hit must not be sent).
+    @discardableResult
+    private func routeEventToWingifyIfNeeded(_ hit: FSTrackingProtocol) -> Bool {
+        guard hit.type == .EVENT,
+              let event = hit as? FSEvent,
+              let eventName = event.action?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !eventName.isEmpty,
+              eventName != FSConsentAction,
+              let integration = FSWingifyRuntime.integration,
+              integration.isConfigured,
+              visitor.wingifyEventKeys.contains(eventName)
+        else {
+            return false
+        }
+
+        var properties: [String: Any] = [:]
+        if let label = event.label {
+            properties["label"] = label
+        }
+        if let value = event.eventValue {
+            properties["value"] = value
+        }
+
+        integration.trackEvent(
+            for: visitor,
+            eventName: eventName,
+            eventProperties: properties.isEmpty ? nil : properties
+        )
+        return true
     }
     
     /// _ Set Consent
