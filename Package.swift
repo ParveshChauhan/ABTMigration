@@ -12,9 +12,15 @@ let package = Package(
         .watchOS(.v7)
     ],
     products: [
+        /// ABTasty-only SDK (does not link Wingify-FME — smaller binary).
         .library(
             name: "Flagship",
             targets: ["Flagship"]
+        ),
+        /// Dual-engine add-on: link **in addition to** `Flagship` when you need Wingify.
+        .library(
+            name: "FlagshipWingify",
+            targets: ["FlagshipWingify"]
         )
     ],
     dependencies: [
@@ -23,10 +29,17 @@ let package = Package(
     targets: [
         .target(
             name: "Flagship",
+            dependencies: [],
+            path: "FlagShip/Source",
+            exclude: ["WingifyBridge"]
+        ),
+        .target(
+            name: "FlagshipWingify",
             dependencies: [
+                "Flagship",
                 .product(name: "Wingify-FME", package: "vwo-fme-ios-sdk")
             ],
-            path: "FlagShip/Source"
+            path: "FlagShip/Source/WingifyBridge"
         )
     ]
 )

@@ -46,6 +46,7 @@ public typealias OnFetchFlagsStatusChanged = ((_ newStatus: FSFetchStatus, _ rea
     }
 
     /// Sets Wingify user-context options used when mapping this visitor to `WingifyUserContext`.
+    /// Effective only when the app links `FlagshipWingify` and starts with Wingify options.
     /// - Parameters:
     ///   - shouldUseDeviceIdAsUserId: When true, Wingify may fall back to the device ID if needed.
     ///   - bucketingSeed: Optional seed for consistent Wingify bucketing.

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>API Parity Flagship vs Wingify</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;color:#222;line-height:1.45;max-width:1000px;margin:24px auto;padding:0 16px}
+h1{font-size:18pt;color:#1F4E79;text-align:center}
+h2{font-size:14pt;color:#222;margin-top:28px;border-bottom:1px solid #ccc;padding-bottom:4px}
+h3{font-size:12pt;color:#333;margin-top:16px}
+table{border-collapse:collapse;width:100%;margin:12px 0 18px;font-size:10pt}
+th{background:#1F4E79;color:#fff;text-align:left;padding:8px 10px;border:1px solid #666}
+td{padding:8px 10px;border:1px solid #666;vertical-align:top}
+tr:nth-child(even) td{background:#EEF3F8}
+pre{background:#F5F5F5;border:1px solid #ddd;padding:10px 12px;font-family:"Courier New",monospace;font-size:9.5pt;white-space:pre-wrap}
+code{font-family:"Courier New",monospace;font-size:9.5pt}
+ul,ol{margin:8px 0 12px 22px} li{margin:4px 0}
+.subtitle{text-align:center;color:#666;margin-bottom:20px}
+</style></head><body>
+
+<h1>Flagship (ABT) ↔ Wingify FME — Public API Comparison &amp; Parity Map</h1>
+<p class="subtitle">Flagship (ABT) ↔ Wingify FME &nbsp;|&nbsp; Public API comparison for meeting</p>
+<p><b>Platforms:</b> iOS (Swift)  </p>
+<p><b>Flagship:</b> <code>FlagShip</code> SDK (incl. optional <code>FlagshipWingify</code>)  </p>
+<p><b>Wingify:</b> <code>Wingify-FME</code> / <code>Wingify_FME</code>  </p>
+<p><b>Goal:</b> Review public APIs, identify what can be brought into / mapped through Flagship for Wingify feature parity, and document limitations.</p>
+<h2>1. Executive summary</h2>
+<table><thead><tr><th>Category</th><th>Flagship (ABT)</th><th>Wingify FME</th><th>Parity status</th></tr></thead><tbody>
+<tr><td>SDK init</td><td><code>Flagship.start</code></td><td><code>WingifyFme.initialize</code></td><td><b>Mapped</b> (via <code>FlagshipWingify</code>)</td></tr>
+<tr><td>User / visitor</td><td><code>FSVisitor</code> + builder</td><td><code>WingifyUserContext</code> (per call)</td><td><b>Partial</b></td></tr>
+<tr><td>Flag read</td><td><code>getFlag</code> → <code>value</code></td><td><code>getFlag</code> → <code>getVariable</code> / <code>getVariables</code></td><td><b>Mapped</b></td></tr>
+<tr><td>Exposure</td><td><code>visitorExposed()</code></td><td>Implicit inside <code>getFlag</code></td><td><b>Limitation</b> (no separate API)</td></tr>
+<tr><td>Analytics events</td><td><code>sendHit(FSEvent/…)</code></td><td><code>trackEvent</code></td><td><b>Mappable</b></td></tr>
+<tr><td>Attributes / context</td><td><code>updateContext</code></td><td><code>setAttribute</code> + context <code>customVariables</code></td><td><b>Partial</b></td></tr>
+<tr><td>Identity</td><td><code>authenticate</code> / <code>unauthenticate</code></td><td><code>setAlias</code></td><td><b>Partial</b></td></tr>
+<tr><td>Consent</td><td><code>setConsent</code></td><td>—</td><td><b>Not available</b> in Wingify</td></tr>
+<tr><td>Flag metadata</td><td><code>metadata()</code></td><td>—</td><td><b>Not available</b> in Wingify</td></tr>
+<tr><td>Fetch lifecycle</td><td><code>fetchFlags</code> + status enums</td><td>Settings fetch at init / poll</td><td><b>Different model</b></td></tr>
+<tr><td>Config</td><td><code>FSConfigBuilder</code></td><td><code>WingifyInitOptions</code></td><td><b>Partial</b> (different concepts)</td></tr>
+</tbody></table>
+<h3>Already mapped today (FlagshipWingify)</h3>
+<table><thead><tr><th>Flagship API</th><th>Wingify API</th><th>Notes</th></tr></thead><tbody>
+<tr><td><code>getFlag(key:).value(...)</code></td><td><code>getFlag</code> + <code>getVariable</code> / <code>getVariables</code></td><td>Prefetch on <code>fetchFlags</code>; Wingify-first resolution</td></tr>
+<tr><td><code>start(..., wingifyInitOptions:)</code></td><td><code>WingifyFme.initialize</code></td><td>Optional dual-engine start</td></tr>
+<tr><td><code>withWingifyUserContext</code> + <code>withContext</code></td><td><code>WingifyUserContext</code></td><td>Mapped in <code>WingifyContextMapper</code></td></tr>
+<tr><td><code>sendHit</code> (planned / next)</td><td><code>trackEvent</code></td><td>Natural mapping for custom events</td></tr>
+</tbody></table>
+<h2>2. Side-by-side public API inventory</h2>
+<h3>2.1 SDK lifecycle</h3>
+<table><thead><tr><th>Flagship (ABT)</th><th>Wingify FME</th><th>Mappable?</th><th>Limitations / notes</th></tr></thead><tbody>
+<tr><td><code>Flagship.sharedInstance</code></td><td>Static <code>WingifyFme</code> (+ multi-instance via <code>getInstance</code>)</td><td>Yes</td><td>Wingify is static/multi-instance; Flagship is singleton + shared visitor</td></tr>
+<tr><td><code>start(envId:apiKey:config:)</code></td><td><code>initialize(options:completion:)</code></td><td>Yes</td><td>Wingify init is <b>async</b> (<code>Result</code> completion). Flagship <code>start</code> is sync for ABTasty path</td></tr>
+<tr><td><code>start(..., wingifyInitOptions:)</code></td><td><code>initialize</code></td><td><b>Mapped</b></td><td>Requires <code>FlagshipWingify</code> product</td></tr>
+<tr><td><code>getStatus() → FSSdkStatus</code></td><td>No direct equivalent</td><td>Partial</td><td>Wingify readiness is “initialized / settings ready”; no panic/SDK status enum like Flagship</td></tr>
+<tr><td><code>close()</code> (flush hits)</td><td><code>performEventSync()</code></td><td>Partial</td><td>Wingify: optional manual flush of batched events; not a full SDK shutdown</td></tr>
+<tr><td><code>setSharedVisitor</code></td><td>—</td><td>No</td><td>Wingify has no visitor object; context is passed per API call</td></tr>
+<tr><td>—</td><td><code>getInstance</code> / <code>clearInstance</code> / <code>clearAllInstances</code></td><td>N/A</td><td>Multi-instance is Wingify-specific</td></tr>
+<tr><td>—</td><td><code>updateSettings</code></td><td>N/A</td><td>Advanced; <code>Settings</code> not easily app-constructed</td></tr>
+</tbody></table>
+<h3>2.2 Visitor / user identity &amp; context</h3>
+<table><thead><tr><th>Flagship (ABT)</th><th>Wingify FME</th><th>Mappable?</th><th>Limitations / notes</th></tr></thead><tbody>
+<tr><td><code>newVisitor(visitorId:hasConsented:instanceType:)</code></td><td>Create <code>WingifyUserContext(id:…)</code></td><td>Partial</td><td>Wingify has <b>no visitor object</b> and <b>no consent</b> flag</td></tr>
+<tr><td><code>withContext</code> / <code>updateContext</code> / <code>getContext</code> / <code>clearContext</code></td><td><code>customVariables</code> on context; <code>setAttribute</code> for server props</td><td>Partial</td><td>Flagship context is long-lived on visitor. Wingify vars are on each call; <code>setAttribute</code> is fire-and-forget sync to backend</td></tr>
+<tr><td><code>withWingifyUserContext(...)</code></td><td><code>shouldUseDeviceIdAsUserId</code>, <code>bucketingSeed</code>, <code>postSegmentationVariables</code></td><td><b>Mapped</b></td><td>—</td></tr>
+<tr><td>Context <code>userAgent</code> / <code>ipAddress</code></td><td><code>userAgent</code>, <code>ipAddress</code></td><td><b>Mapped</b></td><td>Wingify <code>userAgent</code> often set after init</td></tr>
+<tr><td><code>isAuthenticated</code> / <code>authenticate</code> / <code>unauthenticate</code></td><td><code>setAlias(from:to:)</code></td><td>Partial</td><td>Alias needs <code>isAliasingEnabled</code>. Not the same as Flagship experience-continuity (anonymousId + visitorId pair)</td></tr>
+<tr><td><code>visitorId</code> / <code>anonymousId</code></td><td><code>id</code> (+ device id fallback)</td><td>Partial</td><td>No anonymous/authenticated pair in Wingify</td></tr>
+<tr><td><code>hasConsented</code> / <code>setConsent</code></td><td>—</td><td><b>No</b></td><td>Wingify has no consent gate; Flagship blocks hits/cache when consent false</td></tr>
+<tr><td>Preset <code>FlagshipContext</code> keys</td><td>—</td><td><b>No</b></td><td>Device presets are Flagship-specific (can be manually copied into <code>customVariables</code>)</td></tr>
+</tbody></table>
+<h3>2.3 Flag evaluation</h3>
+<table><thead><tr><th>Flagship (ABT)</th><th>Wingify FME</th><th>Mappable?</th><th>Limitations / notes</th></tr></thead><tbody>
+<tr><td><code>fetchFlags(onFetchCompleted:)</code></td><td>Settings loaded at <code>initialize</code> (+ optional poll)</td><td>Partial</td><td>Flagship: explicit per-visitor fetch. Wingify: settings global; evaluation happens on each <code>getFlag</code></td></tr>
+<tr><td><code>getFlag(key:) → FSFlag</code></td><td><code>getFlag(featureKey:context:completion:) → GetFlag</code></td><td><b>Mapped</b></td><td>Wingify is <b>async-only</b>. Flagship handle is sync after fetch</td></tr>
+<tr><td><code>FSFlag.value(defaultValue:)</code></td><td><code>GetFlag.getVariable</code> / first variable / <code>getVariables</code></td><td><b>Mapped</b></td><td>Multi-var Flagship rules (warn + default) documented separately</td></tr>
+<tr><td><code>FSFlag.value(Value:defaultValue:)</code></td><td><code>GetFlag.getVariable(key:defaultValue:)</code></td><td><b>Mapped</b></td><td>Wingify returns untyped <code>Any</code></td></tr>
+<tr><td><code>FSFlag.exists()</code></td><td>Infer from <code>isEnabled()</code> / variables</td><td>Partial</td><td>No dedicated exists API; disabled features may still return a <code>GetFlag</code></td></tr>
+<tr><td><code>FSFlag.status</code> (<code>FSFlagStatus</code>)</td><td>—</td><td><b>No</b></td><td>No FETCHED / FETCH_REQUIRED / NOT_FOUND / PANIC per flag</td></tr>
+<tr><td><code>getFlags() → FSFlagCollection</code></td><td><code>getFeatureKeys()</code> + N× <code>getFlag</code></td><td>Partial</td><td>Wingify lists keys only; no bulk sync flag collection with metadata</td></tr>
+<tr><td><code>FSFlagCollection.exposeAll</code> / <code>toJson</code> / <code>metadatas</code></td><td>—</td><td><b>No</b></td><td>—</td></tr>
+<tr><td>Panic mode (<code>FSSdkStatus.SDK_PANIC</code> / flag PANIC)</td><td>—</td><td><b>No</b></td><td>No Flagship-style panic kill-switch surface</td></tr>
+</tbody></table>
+<h3>2.4 Exposure / activation</h3>
+<table><thead><tr><th>Flagship (ABT)</th><th>Wingify FME</th><th>Mappable?</th><th>Limitations / notes</th></tr></thead><tbody>
+<tr><td><code>value(..., visitorExposed: Bool = true)</code></td><td>Impression sent inside <code>getFlag</code></td><td>Partial</td><td><b>Cannot defer exposure</b> in Wingify. Evaluating the flag ≈ exposing</td></tr>
+<tr><td><code>FSFlag.visitorExposed()</code></td><td>—</td><td><b>No</b></td><td><b>Major limitation:</b> no separate activate / visitor-exposed API</td></tr>
+<tr><td><code>onVisitorExposed</code> config callback</td><td><code>IntegrationCallback.execute</code></td><td>Partial</td><td>Integrations get generic property bags, not typed <code>FSVisitorExposed</code> / <code>FSExposedFlag</code></td></tr>
+<tr><td>Safer exposure checks (type mismatch warnings)</td><td>—</td><td><b>No</b></td><td>Flagship-specific logging / troubleshooting</td></tr>
+</tbody></table>
+<p><b>Implication for parity:</b> Flagship apps that call <code>value(visitorExposed: false)</code> then later <code>visitorExposed()</code> cannot be mirrored 1:1 on Wingify. Bridging must document that Wingify exposure is tied to <code>getFlag</code> evaluation (already done during Flagship <code>fetchFlags</code> prefetch).</p>
+<h3>2.5 Tracking / analytics hits</h3>
+<table><thead><tr><th>Flagship (ABT)</th><th>Wingify FME</th><th>Mappable?</th><th>Limitations / notes</th></tr></thead><tbody>
+<tr><td><code>sendHit(FSEvent)</code></td><td><code>trackEvent(eventName:context:eventProperties:)</code></td><td><b>Mappable</b></td><td>Wingify: event must belong to a feature/holdout or it is dropped (logged error). No completion handler</td></tr>
+<tr><td><code>sendHit(FSPage)</code></td><td>— / custom <code>trackEvent</code></td><td>Weak</td><td>No first-class page hit type</td></tr>
+<tr><td><code>sendHit(FSScreen)</code></td><td>— / custom <code>trackEvent</code></td><td>Weak</td><td>No first-class screen hit type</td></tr>
+<tr><td><code>sendHit(FSTransaction)</code></td><td>— / custom <code>trackEvent</code> + properties</td><td>Weak</td><td>No e-commerce schema; map revenue/etc. into <code>eventProperties</code> manually</td></tr>
+<tr><td><code>sendHit(FSItem)</code></td><td>— / custom <code>trackEvent</code></td><td>Weak</td><td>Same as transaction</td></tr>
+<tr><td>Hit batching (<code>FSTrackingManagerConfig</code>)</td><td><code>batchMinSize</code> / <code>batchUploadTimeInterval</code> / <code>performEventSync</code></td><td>Partial</td><td>Gateway URL disables online batching in Wingify</td></tr>
+<tr><td>Consent-gated hits</td><td>—</td><td><b>No</b></td><td>Wingify does not honor Flagship consent</td></tr>
+<tr><td>Activate hit (exposure)</td><td>Auto on <code>getFlag</code></td><td>Different model</td><td>See §2.4</td></tr>
+</tbody></table>
+<p><b>Recommended mapping (next step):</b></p>
+<table><thead><tr><th>Flagship</th><th>Wingify</th></tr></thead><tbody>
+<tr><td><code>visitor.sendHit(FSEvent(eventCategory:eventAction:))</code></td><td><code>WingifyFme.trackEvent(eventName: eventAction, context:, eventProperties:)</code></td></tr>
+<tr><td>Optional <code>label</code> / <code>eventValue</code></td><td>Put into <code>eventProperties</code></td></tr>
+</tbody></table>
+<h3>2.6 Attributes &amp; visitor properties</h3>
+<table><thead><tr><th>Flagship (ABT)</th><th>Wingify FME</th><th>Mappable?</th><th>Limitations / notes</th></tr></thead><tbody>
+<tr><td><code>updateContext</code> (local + affects next fetch)</td><td>Update <code>customVariables</code> for next <code>getFlag</code> <b>and/or</b> <code>setAttribute</code></td><td>Partial</td><td>Flagship: one API for targeting context. Wingify splits <b>pre-segmentation vars</b> (context) vs <b>visitor attributes</b> (<code>setAttribute</code>)</td></tr>
+<tr><td>—</td><td><code>setAttribute(attributes:context:)</code></td><td>Wingify-only</td><td>Fire-and-forget; dict only (no single-key API)</td></tr>
+<tr><td><code>clearContext</code></td><td>Recreate empty context</td><td>Manual</td><td>—</td></tr>
+</tbody></table>
+<h3>2.7 Flag metadata &amp; reporting</h3>
+<table><thead><tr><th>Flagship (ABT)</th><th>Wingify FME</th><th>Mappable?</th><th>Limitations / notes</th></tr></thead><tbody>
+<tr><td><code>FSFlag.metadata()</code> → campaignId, variationId, names, slug, isReference, campaignType</td><td>—</td><td><b>No</b></td><td><b>Major limitation:</b> <code>GetFlag</code> exposes only enablement + variables (<code>key</code>/<code>value</code>/<code>type</code>/<code>id</code>)</td></tr>
+<tr><td><code>FSExposedFlag</code> / <code>FSFlagMetadata.toJson()</code></td><td>Integrations payload (untyped)</td><td>Weak</td><td>No stable public metadata model</td></tr>
+<tr><td>Troubleshooting / usage hits</td><td><code>isUsageStatsDisabled</code> / <code>vwoMeta</code></td><td>Partial</td><td>Different purpose</td></tr>
+</tbody></table>
+<h3>2.8 Configuration</h3>
+<table><thead><tr><th>Flagship (ABT)</th><th>Wingify FME</th><th>Mappable?</th><th>Limitations / notes</th></tr></thead><tbody>
+<tr><td><code>FSConfigBuilder.DecisionApi()</code> / <code>Bucketing()</code></td><td>Always settings-driven FME</td><td>Different</td><td>No Decision API vs Bucketing modes</td></tr>
+<tr><td><code>withTimeout</code></td><td>Network timeouts internal</td><td>No direct</td><td>—</td></tr>
+<tr><td><code>withLogLevel(FSLevel)</code></td><td><code>logLevel: LogLevelEnum</code></td><td>Yes</td><td>Different enums (<code>ALL/INFO/…</code> vs <code>trace/debug/info/warn/error</code>)</td></tr>
+<tr><td><code>withBucketingPollingIntervals</code></td><td><code>pollInterval</code></td><td>Yes</td><td>Wingify polls settings, not Flagship bucket file</td></tr>
+<tr><td><code>withCacheManager</code> (visitor/hit delegates)</td><td><code>storage: WingifyStorageConnector</code></td><td>Partial</td><td>Wingify storage is key/value decision cache, not Flagship visitor/hit SQLite model</td></tr>
+<tr><td><code>withTrackingManagerConfig</code></td><td><code>batchMinSize</code> / <code>batchUploadTimeInterval</code></td><td>Partial</td><td>—</td></tr>
+<tr><td><code>withOnSdkStatusChanged</code></td><td>Init completion only</td><td>Partial</td><td>No ongoing status stream</td></tr>
+<tr><td><code>withOnVisitorExposed</code></td><td><code>integrations: IntegrationCallback</code></td><td>Partial</td><td>Untyped callback</td></tr>
+<tr><td><code>withDisableDeveloperUsageTracking</code></td><td><code>isUsageStatsDisabled</code></td><td>Yes</td><td>—</td></tr>
+<tr><td>envId + apiKey</td><td><code>accountId</code> + <code>sdkKey</code></td><td>Yes</td><td>Different credential pair</td></tr>
+<tr><td>—</td><td><code>gatewayService</code>, <code>cachedSettingsExpiryTime</code>, <code>cachedDecisionExpiryTime</code>, <code>isAliasingEnabled</code>, <code>logTransport</code>, <code>sdkName</code>/<code>sdkVersion</code></td><td>Wingify-only</td><td>Useful for advanced FME setups</td></tr>
+</tbody></table>
+<h3>2.9 Logging</h3>
+<table><thead><tr><th>Flagship (ABT)</th><th>Wingify FME</th><th>Mappable?</th><th>Limitations / notes</th></tr></thead><tbody>
+<tr><td><code>FSLevel</code> via config</td><td><code>LogLevelEnum</code> + optional <code>LogTransport</code></td><td>Yes</td><td>Levels don’t map 1:1; Wingify allows custom transport</td></tr>
+</tbody></table>
+<h2>3. Mapping matrix (actionable)</h2>
+<p>Legend:</p>
+<ul><li><b>Mapped</b> — already wired in FlagshipWingify  </li><li><b>Mappable</b> — clear bridge candidate  </li><li><b>Partial</b> — can approximate with gaps  </li><li><b>Not available</b> — no Wingify counterpart  </li></ul>
+<table><thead><tr><th>#</th><th>Flagship public API</th><th>Wingify counterpart</th><th>Status</th><th>Key Wingify limitation</th></tr></thead><tbody>
+<tr><td>1</td><td><code>Flagship.start</code></td><td><code>WingifyFme.initialize</code></td><td>Mapped</td><td>Async init only</td></tr>
+<tr><td>2</td><td><code>start(..., wingifyInitOptions:)</code></td><td><code>initialize</code></td><td>Mapped</td><td>Optional module required</td></tr>
+<tr><td>3</td><td><code>newVisitor</code> / <code>FSVisitor</code></td><td><code>WingifyUserContext</code></td><td>Partial</td><td>No long-lived visitor; no consent</td></tr>
+<tr><td>4</td><td><code>withContext</code> / <code>updateContext</code></td><td><code>customVariables</code> (+ <code>setAttribute</code>)</td><td>Partial</td><td>Dual concept (targeting vs attributes)</td></tr>
+<tr><td>5</td><td><code>withWingifyUserContext</code></td><td>Context options</td><td>Mapped</td><td>—</td></tr>
+<tr><td>6</td><td><code>fetchFlags</code></td><td>Init settings + per-<code>getFlag</code> eval</td><td>Partial</td><td>No per-visitor fetch semantics</td></tr>
+<tr><td>7</td><td><code>getFlag</code> + <code>value</code></td><td><code>getFlag</code> + <code>getVariable(s)</code></td><td>Mapped</td><td>Async eval; untyped values</td></tr>
+<tr><td>8</td><td><code>value(visitorExposed:)</code></td><td>Implicit on <code>getFlag</code></td><td>Partial</td><td><b>Cannot control exposure timing</b></td></tr>
+<tr><td>9</td><td><code>visitorExposed()</code></td><td>—</td><td><b>Not available</b></td><td>No activate API</td></tr>
+<tr><td>10</td><td><code>exists</code> / <code>status</code></td><td><code>isEnabled</code> (weak)</td><td>Partial</td><td>No status enum</td></tr>
+<tr><td>11</td><td><code>metadata()</code></td><td>—</td><td><b>Not available</b></td><td>No campaign/variation metadata on <code>GetFlag</code></td></tr>
+<tr><td>12</td><td><code>getFlags</code> collection</td><td><code>getFeatureKeys</code> + loop</td><td>Partial</td><td>No metadata/JSON/exposeAll</td></tr>
+<tr><td>13</td><td><code>sendHit(FSEvent)</code></td><td><code>trackEvent</code></td><td><b>Mappable</b></td><td>Event must exist on feature/holdout; no callback</td></tr>
+<tr><td>14</td><td><code>sendHit(FSPage/Screen/Transaction/Item)</code></td><td>Custom <code>trackEvent</code></td><td>Partial</td><td>No first-class hit types</td></tr>
+<tr><td>15</td><td><code>setConsent</code></td><td>—</td><td><b>Not available</b></td><td>Privacy gating is Flagship-only</td></tr>
+<tr><td>16</td><td><code>authenticate</code> / <code>unauthenticate</code></td><td><code>setAlias</code></td><td>Partial</td><td>Requires aliasing enabled; different model</td></tr>
+<tr><td>17</td><td><code>close</code></td><td><code>performEventSync</code></td><td>Partial</td><td>Flush ≠ shutdown</td></tr>
+<tr><td>18</td><td>Cache delegates</td><td><code>WingifyStorageConnector</code></td><td>Partial</td><td>Different storage contract</td></tr>
+<tr><td>19</td><td><code>onVisitorExposed</code></td><td><code>IntegrationCallback</code></td><td>Partial</td><td>Untyped</td></tr>
+<tr><td>20</td><td>Panic / fetch status APIs</td><td>—</td><td><b>Not available</b></td><td>—</td></tr>
+</tbody></table>
+<h2>4. Detailed limitation catalog (Wingify)</h2>
+<h3>4.1 Flag APIs</h3>
+<table><thead><tr><th>Topic</th><th>Detail</th></tr></thead><tbody>
+<tr><td>Exposure control</td><td>No <code>visitorExposed</code>. Impression/user-tracking happens during <code>getFlag</code>.</td></tr>
+<tr><td>Sync API</td><td><code>getFlag</code> is completion-based only.</td></tr>
+<tr><td>Typing</td><td><code>getVariable</code> returns <code>Any</code>, not generics like Flagship <code>value&lt;T&gt;</code>.</td></tr>
+<tr><td>Metadata</td><td>No campaignId / variationId / variationName / slug / isReference on <code>GetFlag</code>.</td></tr>
+<tr><td>Flag status</td><td>No FETCHED / NOT_FOUND / PANIC per key.</td></tr>
+<tr><td>Multi-variable DX</td><td>App must pick variable key; Flagship bridge adds warning when non-overloaded API used with &gt;1 vars.</td></tr>
+</tbody></table>
+<h3>4.2 Tracking APIs</h3>
+<table><thead><tr><th>Topic</th><th>Detail</th></tr></thead><tbody>
+<tr><td>Schema</td><td>Only generic <code>trackEvent(name, properties)</code>.</td></tr>
+<tr><td>Validation</td><td>Unknown events (not on feature/holdout) are not sent.</td></tr>
+<tr><td>Reliability signal</td><td>No success/failure completion to the app.</td></tr>
+<tr><td>Hit types</td><td>No Page / Screen / Transaction / Item first-class models.</td></tr>
+</tbody></table>
+<h3>4.3 Visitor model</h3>
+<table><thead><tr><th>Topic</th><th>Detail</th></tr></thead><tbody>
+<tr><td>Object model</td><td>Context is re-supplied on every call (no <code>FSVisitor</code>-like state machine).</td></tr>
+<tr><td>Consent</td><td>Not supported.</td></tr>
+<tr><td>Auth continuity</td><td><code>setAlias</code> ≠ Flagship authenticate/unauthenticate + anonymousId.</td></tr>
+<tr><td>Experience continuity history</td><td>No assigned-variation history API like Flagship cache visitor.</td></tr>
+</tbody></table>
+<h3>4.4 Platform / ops</h3>
+<table><thead><tr><th>Topic</th><th>Detail</th></tr></thead><tbody>
+<tr><td>Multi-instance</td><td>Supported (<code>getInstance</code>); Flagship bridge currently uses default/single engine path.</td></tr>
+<tr><td>Gateway vs batching</td><td>Configuring gateway disables online event batching.</td></tr>
+<tr><td>Panic</td><td>No Flagship panic mode.</td></tr>
+</tbody></table>
+<h2>5. Recommended next mappings (priority)</h2>
+<table><thead><tr><th>Priority</th><th>Flagship API</th><th>Wingify API</th><th>Bridge approach</th><th>Watch-outs</th></tr></thead><tbody>
+<tr><td>P0</td><td><code>sendHit(FSEvent)</code></td><td><code>trackEvent</code></td><td>Map <code>eventAction</code> → <code>eventName</code>; attach label/value as properties; use visitor→context mapper</td><td>Dropped if event not configured in Wingify</td></tr>
+<tr><td>P1</td><td><code>updateContext</code></td><td>Refresh customVariables for next prefetch + optional <code>setAttribute</code></td><td>Decide whether context updates should call <code>setAttribute</code>, re-prefetch, or both</td><td>Dual semantics</td></tr>
+<tr><td>P1</td><td>Document exposure model</td><td>n/a</td><td>Explicit docs: Wingify exposure at prefetch/<code>getFlag</code> time</td><td>Apps using deferred expose need redesign</td></tr>
+<tr><td>P2</td><td><code>authenticate</code></td><td><code>setAlias</code></td><td>Map when aliasing enabled</td><td>Feature-flagged in Wingify init</td></tr>
+<tr><td>P2</td><td><code>sendHit(FSTransaction/Item/Page/Screen)</code></td><td><code>trackEvent</code> conventions</td><td>Define property schema convention</td><td>Not native Wingify types</td></tr>
+<tr><td>P3</td><td><code>metadata()</code></td><td>Integrations / internal campaign data if exposed later</td><td>Blocked until Wingify public metadata exists</td><td><b>Hard limitation today</b></td></tr>
+<tr><td>P3</td><td><code>setConsent</code></td><td>—</td><td>Keep ABTasty-only; skip Wingify calls when no consent</td><td>Product decision</td></tr>
+</tbody></table>
+<h2>6. Suggested bridge pseudocode (sendHit → trackEvent)</h2>
+<pre>// Conceptual mapping for FlagshipWingify
+func sendHitToWingify(_ event: FSEvent, visitor: FSVisitor) {
+    let context = WingifyContextMapper.makeContext(from: visitor)
+    var props: [String: Any] = [:]
+    if let label = event.label { props[&quot;label&quot;] = label }
+    if let value = event.eventValue { props[&quot;value&quot;] = value }
+    // event.action is the Wingify event name
+    WingifyFme.trackEvent(
+        eventName: event.eventAction,
+        context: context,
+        eventProperties: props.isEmpty ? nil : props
+    )
+}</pre>
+<p><b>Limitations to surface in logs/docs:</b></p>
+<ul><li>Event name must exist in Wingify project (feature/holdout).  </li><li>No ACK to the app.  </li><li>Does not replace ABTasty hit pipeline unless product chooses dual-send or Wingify-only for Wingify keys.</li></ul>
+<h2>7. Test checklist for parity work</h2>
+<ul><li>[ ] <code>getFlag</code>/<code>value</code> parity (single + multi variable) — already in place  </li><li>[ ] <code>trackEvent</code> via <code>sendHit(FSEvent)</code> with known Wingify event  </li><li>[ ] Unknown Wingify event is dropped (verify log)  </li><li>[ ] Deferred exposure Flagship pattern <b>cannot</b> be reproduced — document  </li><li>[ ] <code>metadata()</code> on Wingify-backed flag returns empty/default — document  </li><li>[ ] Consent=false: ABTasty hits blocked; define Wingify behavior  </li><li>[ ] <code>setAlias</code> path when <code>isAliasingEnabled</code>  </li><li>[ ] Context update then re-<code>fetchFlags</code> refreshes Wingify decisions  </li></ul>
+<h2>8. FAQ</h2>
+<p><b>Q: Can we fully match Flagship <code>visitorExposed()</code> on Wingify?</b>  </p>
+<p>A: No. Wingify sends impressions as part of <code>getFlag</code>. The bridge should document this and avoid promising deferred exposure for Wingify flags.</p>
+<p><b>Q: Is <code>sendHit</code> → <code>trackEvent</code> a clean map?</b>  </p>
+<p>A: For <code>FSEvent</code>, yes (best fit). For Page/Screen/Transaction/Item, only via conventions in <code>eventProperties</code>.</p>
+<p><b>Q: Why isn’t metadata mappable?</b>  </p>
+<p>A: Public <code>GetFlag</code> does not expose campaign/variation identifiers comparable to <code>FSFlagMetadata</code>.</p>
+<p><b>Q: What about consent?</b>  </p>
+<p>A: Wingify has no consent API. Product must decide whether Flagship consent also suppresses Wingify <code>trackEvent</code> / prefetch.</p>
+<h2>9. Related docs</h2>
+<ul><li>[Optional Wingify dependency spec](./Optional-Wingify-Dependency-Spec.md)  </li><li>[Wingify flag values](./Wingify-Flag-Values.md)  </li><li>[Optional Wingify SDK (short)](./Optional-Wingify-SDK.md)  </li></ul>
+</body></html>

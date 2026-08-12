@@ -62,12 +62,14 @@ class FSDefaultStrategy: FSDelegateStrategy {
     
     /// Activate Flag
     func activateFlag(_ flag: FSFlag) {
-        // Wingify impressions are already sent during getFlag evaluation in fetchFlags.
+        // Prefetch uses Wingify `fetchFlags` (no impressions). Exposure via `exposeResult`
+        // when Flagship `value` / `visitorExposed` runs (visitorExposed defaults to true).
         if visitor.wingifyFeatureKeys.contains(flag.key) {
+            FSWingifyRuntime.integration?.exposeFlag(for: visitor, featureKey: flag.key)
             FlagshipLogManager.Log(
                 level: .INFO,
                 tag: .ACTIVATE,
-                messageToDisplay: FSLogMessage.MESSAGE("Wingify engine handles exposure for flag `\(flag.key)`. ABTasty activate skipped.")
+                messageToDisplay: FSLogMessage.MESSAGE("Wingify exposeResult for flag `\(flag.key)`. ABTasty activate skipped.")
             )
             return
         }
@@ -210,9 +212,47 @@ class FSDefaultStrategy: FSDelegateStrategy {
         // Set the visitor Id and anonymous id  (See later to better )
         hit.visitorId = visitor.visitorId
         hit.anonymousId = visitor.anonymousId
+
+        // Same strategy as getFlag: if event key is in Wingify settings → Wingify only; else ABTasty.
+        if routeEventToWingifyIfNeeded(hit) {
+            return
+        }
+
         visitor.configManager.trackingManager?.sendHit(hit)
         // Troubleshooting hits
         FSDataUsageTracking.sharedInstance.processTSHits(label: CriticalPoints.VISITOR_SEND_HIT.rawValue, visitor: visitor, hit: hit)
+    }
+
+    /// Routes `FSEvent` to Wingify `trackEvent` when the event action is in `wingifyEventKeys`.
+    /// Returns `true` when handled by Wingify (ABTasty hit must not be sent).
+    @discardableResult
+    private func routeEventToWingifyIfNeeded(_ hit: FSTrackingProtocol) -> Bool {
+        guard hit.type == .EVENT,
+              let event = hit as? FSEvent,
+              let eventName = event.action?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !eventName.isEmpty,
+              eventName != FSConsentAction,
+              let integration = FSWingifyRuntime.integration,
+              integration.isConfigured,
+              visitor.wingifyEventKeys.contains(eventName)
+        else {
+            return false
+        }
+
+        var properties: [String: Any] = [:]
+        if let label = event.label {
+            properties["label"] = label
+        }
+        if let value = event.eventValue {
+            properties["value"] = value
+        }
+
+        integration.trackEvent(
+            for: visitor,
+            eventName: eventName,
+            eventProperties: properties.isEmpty ? nil : properties
+        )
+        return true
     }
     
     /// _ Set Consent

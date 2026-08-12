@@ -46,6 +46,8 @@ import Foundation
     public internal(set) var wingifyFlags: [String: FSModification] = [:]
     /// All Wingify feature keys from settings (including disabled). Used so getFlag prefers Wingify over ABTasty for these keys.
     var wingifyFeatureKeys: Set<String> = []
+    /// All Wingify event identifiers from settings (feature + holdout metrics). Used so sendHit(FSEvent) prefers Wingify trackEvent.
+    var wingifyEventKeys: Set<String> = []
     /// Optional Wingify options used when mapping this visitor to `WingifyUserContext`.
     public internal(set) var wingifyUserContext: FSWingifyVisitorOptions?
     /// Context
@@ -125,7 +127,7 @@ import Foundation
                 self.sendHit(FSSegment(self.getContext()))
             }
 
-            // When Wingify is configured, evaluate all features from settings into wingifyFlags.
+            // When Wingify is configured, call Wingify `fetchFlags` and adapt into wingifyFlags.
             self.prefetchWingifyFlagsIfNeeded {
                 self.requiredFetchReason = reason
                 self.fetchStatus = state
@@ -135,25 +137,27 @@ import Foundation
     }
 
     private func prefetchWingifyFlagsIfNeeded(completion: @escaping () -> Void) {
-        guard WingifyInitCoordinator.isConfigured, hasConsented else {
+        guard let integration = FSWingifyRuntime.integration, integration.isConfigured, hasConsented else {
             wingifyFlags.removeAll()
             wingifyFeatureKeys.removeAll()
+            wingifyEventKeys.removeAll()
             completion()
             return
         }
 
-        WingifyFlagPrefetcher.evaluateAllFeatures(visitor: self) { [weak self] result in
+        integration.prefetchFlags(for: self) { [weak self] featureKeys, eventKeys, modifications in
             guard let self = self else {
                 completion()
                 return
             }
-            self.wingifyFeatureKeys = result.featureKeys
-            self.wingifyFlags = result.modifications
+            self.wingifyFeatureKeys = featureKeys
+            self.wingifyEventKeys = eventKeys
+            self.wingifyFlags = modifications
             FlagshipLogManager.Log(
                 level: .INFO,
                 tag: .FLAG,
                 messageToDisplay: FSLogMessage.MESSAGE(
-                    "Wingify prefetch: \(result.featureKeys.count) feature key(s), \(result.modifications.count) enabled"
+                    "Wingify fetchFlags: \(featureKeys.count) feature key(s), \(eventKeys.count) event key(s), \(modifications.count) enabled"
                 )
             )
             completion()

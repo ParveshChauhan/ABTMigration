@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import Flagship
 import Wingify_FME
 
 enum WingifyInitCoordinator {

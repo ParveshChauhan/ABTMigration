@@ -25,7 +25,7 @@ If the feature has **more than one variable** and you call `value(defaultValue:)
 
    > Wingify feature 'checkoutFlow' contains multiple variables. Please specify a variable key using .value(Value: "variableKey", defaultValue:).
 
-Pass the variable key with the overloaded API:
+Pass the variagitble key with the overloaded API:
 
 ```swift
 let cta = flag.value(Value: "cta", defaultValue: "Buy now")
@@ -72,11 +72,14 @@ let visitor = Flagship.sharedInstance
 | `withWingifyUserContext.bucketingSeed` | `bucketingSeed` |
 | `withWingifyUserContext.postSegmentationVariables` | `postSegmentationVariables` |
 
-This mapping is applied in `WingifyContextMapper` before Wingify `getFlag` during `fetchFlags`.
+This mapping is applied in `WingifyContextMapper` before Wingify `fetchFlags` during Flagship `fetchFlags`.
 
 ## Related APIs
 
-- `Flagship.start(..., wingifyInitOptions:)` — optional dual-engine init
-- `FSVisitorBuilder.withWingifyUserContext(...)` — Wingify user-context options on the visitor
-- `visitor.fetchFlags` — prefetches Wingify features when configured
+- `Flagship.start(...)` — ABTasty only (`Flagship` product)
+- `Flagship.start(..., wingifyInitOptions:)` — dual-engine (`FlagshipWingify` product)
+- `FSVisitorBuilder.withWingifyUserContext(...)` — Wingify user-context options
+- `visitor.fetchFlags` — calls Wingify `fetchFlags` (adapts `FlagCollection` → Flagship flags); impressions deferred until `visitorExposed` / `value(...)`
 - `visitor.getFlag(key:)` — Wingify key preferred when present in Wingify settings
+
+See also [Optional Wingify SDK](./Optional-Wingify-SDK.md).

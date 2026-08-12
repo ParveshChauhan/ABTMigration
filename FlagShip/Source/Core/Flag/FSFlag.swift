@@ -72,6 +72,8 @@ public class FSFlag: NSObject {
                 }
             } else {
                 result = defaultValue
+                // Avoid the misleading "different type" safer-exposure warning when the value was simply missing.
+                isSafeToExpose = true
                 let msg = "For the visitor \(strategy?.visitor.visitorId ?? ""), no value was found for flag `\(key)`\(valueKey.map { " variable `\($0)`" } ?? ""). Therefore, the default value \(String(describing: defaultValue)) has been returned"
                 FlagshipLogManager.Log(level: .ALL, tag: .GET_MODIFICATION, messageToDisplay: FSLogMessage.MESSAGE(msg))
             }
@@ -90,7 +92,15 @@ public class FSFlag: NSObject {
     /// Resolves the raw value for ABTasty or Wingify (optionally by variable key).
     private func resolveFlagValue<T>(from modification: FSModification, Value valueKey: String?, defaultValue: T?) -> Any? {
         if modification.type == "wingify", let valueKey = valueKey, !valueKey.isEmpty {
-            return modification.wingifyVariableValue(for: valueKey)
+            if let variableValue = modification.wingifyVariableValue(for: valueKey) {
+                return variableValue
+            }
+            // Sticky / single-var features: apps often pass the feature key as Value.
+            // Fall back to the primary modification value when the named variable is missing.
+            if valueKey == key || modification.wingifyVariables.count <= 1 {
+                return modification.value
+            }
+            return nil
         }
         // Single Wingify variable (or ABTasty): use the primary modification value
         return modification.value

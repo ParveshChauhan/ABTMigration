@@ -102,7 +102,7 @@ public class FSModification {
     }
 
     /// Creates a modification from a Wingify feature evaluation result.
-    internal init(
+    public init(
         fromWingify featureKey: String,
         valueForFlag: Any,
         campaignId: String,
@@ -126,7 +126,7 @@ public class FSModification {
         self.wingifyVariableCount = wingifyVariableCount > 0 ? wingifyVariableCount : wingifyVariables.count
     }
 
-    static func fromWingify(
+    public static func fromWingify(
         featureKey: String,
         value: Any,
         campaignId: String,

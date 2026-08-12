@@ -4,9 +4,22 @@
 //
 
 import Foundation
+import Flagship
 import Wingify_FME
 
 enum WingifyFlagAdapter {
+    /// Maps a Wingify `FlagCollection` into ABTasty `[featureKey: FSModification]`.
+    /// Only enabled features are included.
+    static func map(collection: FlagCollection) -> [String: FSModification] {
+        var modifications: [String: FSModification] = [:]
+        collection.forEach { featureKey, getFlag in
+            if let modification = map(featureKey: featureKey, getFlag: getFlag) {
+                modifications[featureKey] = modification
+            }
+        }
+        return modifications
+    }
+
     /// Maps a Wingify `GetFlag` result into an ABTasty `FSModification`.
     /// Stores all variables so `FSFlag.value(Value:defaultValue:)` can look them up by key.
     static func map(featureKey: String, getFlag: GetFlag) -> FSModification? {
@@ -30,7 +43,12 @@ enum WingifyFlagAdapter {
             let fallback = getFlag.getVariable(key: featureKey, defaultValue: NSNull())
             if fallback is NSNull { return nil }
             value = fallback
-            variablesMap[featureKey] = fallback
+        }
+
+        // Always expose the primary value under the feature key so
+        // `.value(Value: featureKey, defaultValue:)` works after sticky fetchFlags.
+        if variablesMap[featureKey] == nil {
+            variablesMap[featureKey] = value
         }
 
         return FSModification.fromWingify(
@@ -41,7 +59,7 @@ enum WingifyFlagAdapter {
             campaignName: featureKey,
             campaignType: "wingify",
             wingifyVariables: variablesMap,
-            wingifyVariableCount: variableCount
+            wingifyVariableCount: max(variableCount, variablesMap.count)
         )
     }
 }

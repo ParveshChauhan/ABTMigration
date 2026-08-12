@@ -5,7 +5,6 @@
 //  Created by Adel on 31/08/2021.
 
 import Foundation
-import Wingify_FME
 
 public class Flagship: NSObject {
     let fsQueue = DispatchQueue(label: "flagship.queue", attributes: .concurrent)
@@ -66,17 +65,9 @@ public class Flagship: NSObject {
      }
 
     /// Starts the Flagship SDK (ABTasty only).
+    /// For dual-engine (ABTasty + Wingify), import `FlagshipWingify` and use
+    /// `start(envId:apiKey:config:wingifyInitOptions:)`.
     @objc public func start(envId: String, apiKey: String, config: FlagshipConfig? = nil) {
-        start(envId: envId, apiKey: apiKey, config: config, wingifyInitOptions: nil)
-    }
-
-    /// Starts ABTasty and optionally Wingify when `wingifyInitOptions` is provided.
-    /// - Parameters:
-    ///   - envId: ABTasty environment ID
-    ///   - apiKey: ABTasty API key
-    ///   - config: Flagship configuration
-    ///   - wingifyInitOptions: Wingify FME init options (`accountId` + `sdkKey`, etc.). When set, Wingify is initialized alongside ABTasty.
-    public func start(envId: String, apiKey: String, config: FlagshipConfig? = nil, wingifyInitOptions: WingifyInitOptions? = nil) {
         let resolvedConfig = config ?? FSConfigBuilder().build()
 
         // Check the environmentId
@@ -103,21 +94,6 @@ public class Flagship: NSObject {
             pollingScript = FSPollingScript(pollingTime: resolvedConfig.pollingTime)
             // Update status depend on the buckeitng file
             Flagship.sharedInstance.updateStatus(FSStorageManager.bucketingScriptAlreadyAvailable() ? .SDK_INITIALIZED : .SDK_INITIALIZING)
-        }
-
-        // Optionally initialize Wingify alongside ABTasty
-        if let wingifyInitOptions = wingifyInitOptions {
-            WingifyInitCoordinator.initialize(options: wingifyInitOptions) { success in
-                FlagshipLogManager.Log(
-                    level: .ALL,
-                    tag: .INITIALIZATION,
-                    messageToDisplay: FSLogMessage.MESSAGE(
-                        success
-                            ? "Wingify engine initialized"
-                            : "Wingify engine failed to initialize"
-                    )
-                )
-            }
         }
 
         FlagshipLogManager.Log(level: .ALL, tag: .INITIALIZATION, messageToDisplay: FSLogMessage.INIT_SDK(FlagShipVersion))
@@ -157,7 +133,7 @@ public class Flagship: NSObject {
     // Reset the sdk
     func reset() {
         fsQueue.sync(flags: .barrier) {
-            WingifyInitCoordinator.reset()
+            FSWingifyRuntime.integration?.reset()
             self.sharedVisitor = nil
             self._currentStatus = .SDK_NOT_INITIALIZED
             self._currentConfig = FSConfigBuilder().build()
